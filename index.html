@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VTX Speech</title>
+<meta name="description" content="Speech from an AY-3-8910 sound chip's own tone, noise and envelope generators: no samples, one register update per 50 Hz frame. An interactive explainer with a live playground.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M1 8h2l1-5 2 10 2-8 2 6 1-3h4%22 fill=%22none%22 stroke=%22%232a78d6%22 stroke-width=%221.6%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#">VTX Speech</a>
+  <nav>
+    <a href="#try">Try it</a>
+    <a href="#chip">The chip</a>
+    <a href="#vowels">Vowels</a>
+    <a href="#buzz">The buzz</a>
+    <a href="#consonants">Consonants</a>
+    <a href="#pipeline">Text to registers</a>
+    <a href="#cpu">CPU work</a>
+    <a href="#machines">Other machines</a>
+    <a href="#small">Keeping it small</a>
+    <a href="#further">Further ideas</a>
+    <a href="#features">Features</a>
+    <a href="#credits">Credits</a>
+  </nav>
+</header>
+
+<main>
+<section class="hero">
+  <h1>A talking AY chip</h1>
+  <p class="lede">The AY-3-8910 family has three square waves, one noise source and one envelope. It has no filters, no waveforms and no samples. This page shows that it can still talk, using only its own generators. The CPU sets the chip's registers once every 50th of a second, which takes about 2% of a Vectrex frame, and the chip makes the voice in between.</p>
+  <p class="dim">Everything here runs in your browser: the voice model, the pronunciation dictionary and an AY emulator. Type anything below.</p>
+</section>
+
+<!-- ===================================================== playground -->
+<section id="try" class="panel playground">
+  <h2>Try it</h2>
+  <div class="say-row">
+    <input id="say" type="text" spellcheck="false" aria-label="Text to say" value=",:1 SH:7@68 AE1:5@68 AA1:6@68 L:6@89 | W:4@84 IY1:12@68 | P:1 L:2@108 EY1:16@90 | AH0:15@90 | G:7@90 EY1:8@125 M:9@127 ?">
+    <button id="speak" class="primary" title="Enter">Speak</button>
+    <button id="stop" title="Stop">Stop</button>
+  </div>
+  <div class="row wrap">
+    <label class="inline"><input type="radio" name="mode" value="text"> English</label>
+    <label class="inline"><input type="radio" name="mode" value="phonemes" checked> Phonemes</label>
+    <button id="toPhonemes" class="small">Edit as phonemes</button>
+    <label class="inline">Example
+      <select id="preset">
+        <option value="">choose…</option>
+      </select>
+    </label>
+    <span id="dictStatus" class="dim"></span>
+  </div>
+  <div id="pronounced" class="pronounced" aria-live="polite"></div>
+  <div id="error" class="error" role="alert"></div>
+
+  <div class="viz">
+    <div class="viz-head">
+      <span class="dim">Spectrogram of the AY output, 0–4 kHz, with the formants the model aims for. Click to inspect a frame.</span>
+      <span class="legend">
+        <span><i class="key s1"></i>F1</span><span><i class="key s2"></i>F2</span><span><i class="key s3"></i>F3</span>
+      </span>
+    </div>
+    <canvas id="spectro" height="220" aria-label="Spectrogram"></canvas>
+    <canvas id="strip" height="34" aria-label="Phonemes over time"></canvas>
+    <div id="stats" class="stats"></div>
+  </div>
+
+  <div class="two">
+    <details class="voice" open>
+      <summary>Voice</summary>
+      <div class="controls">
+        <label>Pitch <input id="pitch" type="range" min="50" max="400" value="110"> <output for="pitch"></output></label>
+        <label>Speed <input id="rate" type="range" min="0.5" max="2" step="0.05" value="1"> <output for="rate"></output></label>
+        <label>Stress lift <input id="stress" type="range" min="0" max="0.5" step="0.01" value="0.15"> <output for="stress"></output></label>
+        <label>Phrase fall <input id="fall" type="range" min="0" max="0.6" step="0.01" value="0.2"> <output for="fall"></output></label>
+        <label>Question rise <input id="question" type="range" min="0" max="0.8" step="0.01" value="0.35"> <output for="question"></output></label>
+        <label>Vibrato depth <input id="vdepth" type="range" min="0" max="0.1" step="0.005" value="0"> <output for="vdepth"></output></label>
+        <label>Vibrato rate <input id="vrate" type="range" min="1" max="15" step="0.5" value="5"> <output for="vrate"></output></label>
+        <label>Voice size <input id="fscale" type="range" min="0.8" max="1.4" step="0.01" value="1"> <output for="fscale"></output></label>
+        <label>Harmonic lock
+          <select id="lock"><option value="nearest">nearest harmonic</option><option value="off">off (free formants)</option></select></label>
+        <label>Envelope shape
+          <select id="shape"><option value="8">8: sawtooth \\\\</option><option value="12">12: sawtooth ////</option><option value="10">10: triangle \/\/</option><option value="14">14: triangle /\/\</option></select></label>
+        <label>Channel C (F3)
+          <select id="f3"><option value="level">F3, steady volume</option><option value="env">F3 on the envelope</option><option value="off">off</option></select></label>
+        <label>Layout
+          <select id="layout"><option value="full">all three channels</option><option value="shared">A and B only (C free for the game)</option></select></label>
+        <label class="check"><input id="whisper" type="checkbox"> Whisper (experiment)</label>
+      </div>
+    </details>
+    <details class="chipbox" open>
+      <summary>Chip</summary>
+      <div class="controls">
+        <label>Machine <select id="machine"></select></label>
+        <p id="machineNote" class="dim"></p>
+        <div class="buttons">
+          <button id="wav" class="small">Download WAV</button>
+          <button id="regsOut" class="small">Download registers (JSON)</button>
+        </div>
+      </div>
+      <h3>Registers at frame <span id="frameNo">0</span></h3>
+      <table class="regs" id="regs"><thead><tr><th>Reg</th><th>Value</th><th>Meaning</th></tr></thead><tbody></tbody></table>
+    </details>
+  </div>
+</section>
+
+<!-- ===================================================== the chip -->
+<section id="chip" class="prose">
+  <h2>1. What the chip gives you</h2>
+  <p>The General Instrument AY-3-8910 and its relatives (the 8912, and Yamaha's YM2149) appear in the Vectrex, the ZX Spectrum 128, the Amstrad CPC, MSX computers, the Atari ST and many arcade boards. They all offer the same small set of parts:</p>
+  <figure class="diagram">
+    <svg id="chipDiagram" viewBox="0 0 720 300" role="img" aria-labelledby="chipTitle">
+      <title id="chipTitle">AY block diagram: three tone generators and one noise generator feed a per-channel AND mixer; each channel's level is a fixed 4-bit volume or the shared envelope; the three outputs are summed.</title>
+    </svg>
+    <figcaption>One channel's path. Each tone and the noise are on/off signals. The mixer ANDs them per channel (a disabled source counts as always on). The result switches a level, which is either a fixed 4-bit volume or the one shared envelope.</figcaption>
+  </figure>
+  <ul class="facts">
+    <li><b>Three tone generators.</b> Square waves with a 12-bit period: <code>f = clock / (16 × TP)</code>.</li>
+    <li><b>One noise generator</b>, shared by all three channels, with a 5-bit period.</li>
+    <li><b>A mixer</b> that turns tone and/or noise on for each channel. When both are on, the chip ANDs them.</li>
+    <li><b>A 4-bit volume per channel</b> (logarithmic, about 3 dB a step), <em>or</em> the channel follows the envelope.</li>
+    <li><b>One envelope generator</b>: a 16-bit period and a handful of shapes (decay, attack, and the repeating sawtooth and triangle). There is only one, so every channel that uses it shares the same shape and timing.</li>
+  </ul>
+  <p>There are fourteen registers in all. No filters, no waveforms other than square, no sample playback. The usual way to make speech on this chip is to give up and play samples by hammering a channel's volume register thousands of times a second. That works, but it costs a lot of CPU and a lot of memory (see <a href="#small">below</a>).</p>
+</section>
+
+<!-- ===================================================== vowels -->
+<section id="vowels" class="prose">
+  <h2>2. What a voice is made of</h2>
+  <p>Voiced speech has two parts. A <b>source</b>: the vocal folds snap shut about 80–250 times a second, which gives a buzz rich in harmonics. A <b>filter</b>: the throat and mouth resonate at a few frequencies, the <b>formants</b>, and boost the harmonics near them. Moving the tongue and lips moves the formants, and the first two formants alone mostly decide which vowel you hear.</p>
+  <figure class="chart">
+    <svg id="vowelChart" viewBox="0 0 640 380" role="img" aria-labelledby="vowelTitle"><title id="vowelTitle">The ten English vowels by first and second formant</title></svg>
+    <figcaption>Ten vowels by their first two formants (Peterson and Barney, 1952, average adult male). The axes run the way phoneticians draw them, so the chart is roughly a map of the mouth: front vowels on the left, open vowels at the bottom. <b>Click a vowel to hear the AY say it.</b></figcaption>
+  </figure>
+  <p>The AY has no filter, so it cannot shape a buzz into a vowel. What it <em>can</em> do is put tones at the formant frequencies. Three square waves at F1, F2 and F3 make a recognisable but organ-like chord with no voice in it. The missing part is the buzz.</p>
+</section>
+
+<!-- ===================================================== the buzz -->
+<section id="buzz" class="prose">
+  <h2>3. Making the buzz</h2>
+  <p>The envelope is meant to shape notes over tenths of a second. Its repeating sawtooth (shape 8, <code>\\\\</code>) can also run much faster: with a period <code>EP</code> it repeats at <code>f0 = clock / (256 × EP)</code>, which is 110 Hz at EP 53 on a 1.5 MHz chip. Musicians on AY and YM machines use this as a bass "buzzer" sound.</p>
+  <p>Now put a tone channel <em>on</em> the envelope. The channel plays its square wave at the formant frequency, but its loudness is the sawtooth: loud at the start of every pitch period, then dying away. That is what a resonance does when the vocal folds strike it: a ring at the formant frequency, restarted f0 times a second. The tone gives the formant, the envelope gives the pitch, and together they make a voice.</p>
+
+  <div class="panel widget" id="buzzWidget">
+    <div class="controls inline-controls">
+      <label>Pitch f0 <input id="bzPitch" type="range" min="60" max="300" value="108"> <output for="bzPitch"></output></label>
+      <label>Formant <input id="bzFormant" type="range" min="200" max="2600" step="10" value="660"> <output for="bzFormant"></output></label>
+      <label class="check"><input id="bzLock" type="checkbox" checked> Lock to the nearest harmonic</label>
+    </div>
+    <div class="buttons">
+      <button data-bz="tone">Tone, fixed volume (normal AY)</button>
+      <button data-bz="env">Envelope alone (the buzzer)</button>
+      <button data-bz="voice" class="primary">Tone on the envelope (a voice)</button>
+    </div>
+    <canvas id="bzTrace" height="210" aria-label="Envelope, tone and channel output over three pitch periods"></canvas>
+    <p class="dim">Three pitch periods of the chip's own output (before any filtering): the envelope level, the tone's on/off square, and the channel. The channel is on only while the tone is high, at the envelope's level.</p>
+    <canvas id="bzSpec" height="200" aria-label="Spectrum of one second of the sound"></canvas>
+    <p id="bzReadout" class="readout"></p>
+  </div>
+
+  <h3>Locking the formant to the pitch</h3>
+  <p>A buzzing voice is periodic: all its energy sits at exact multiples of the pitch. A tone running freely at 730 Hz over a 110 Hz envelope is not a multiple, so the pattern drifts against the pulses every period and gives a rough shimmer instead of a buzz. The chip's tone and envelope counters run from the same clock, so a tone period of</p>
+  <p class="formula"><code>TP = 16 × EP / n</code></p>
+  <p>is exactly the <i>n</i>th harmonic of the pitch, as long as <i>n</i> divides <code>16 × EP</code>. With F1 and F2 locked this way, 99.7% of the sound's energy (60 Hz–5 kHz) lands on harmonics, against 73% for free-running tones. Turn the lock off in the widget above to see the spectrum smear. By ear the difference is smaller than the numbers suggest, but locking makes the voice clearer in a mix. The cost is that a formant can be up to half a harmonic away from its target.</p>
+  <p>The lock has to run on the target machine, because the pitch changes every frame. Division is slow on 8-bit CPUs, so it is computed with multiplies and a 64-entry table of reciprocals:</p>
+<pre><code>Fq = round(F / 16)                    formant in 16 Hz units: one byte
+n  = (Fq × EP × K + 32768) >> 16      nearest harmonic, 1..63  (K = 179 at 1.5 MHz)
+TP = (EP × R[n] + 512) >> 10          R[n] = round(16384 / n): 128 bytes of table</code></pre>
+  <p>Compared with exact division, the result differs only on rounding ties (51 of 5,859 cases, never by more than about half a period).</p>
+
+  <h3>What the trick costs</h3>
+  <ul>
+    <li><b>One pitch.</b> There is one envelope, so there is one voice, and no chords while speaking.</li>
+    <li><b>No formant balance.</b> A channel on the envelope loses its own volume, so F1 and F2 come out equally loud. In real vowels F2 is often 10–20 dB quieter. F3 is quiet anyway, so it stays on a steady low volume.</li>
+    <li><b>Restarts.</b> Writing the shape register restarts the envelope, so it is written only when voicing starts after silence or a voiceless consonant.</li>
+  </ul>
+</section>
+
+<!-- ===================================================== consonants -->
+<section id="consonants" class="prose">
+  <h2>4. Consonants</h2>
+  <p>Vowels carry the voice; consonants make it understandable. Each one is built from the same few parts:</p>
+  <div class="cards" id="consonantCards"></div>
+  <canvas id="miniSpectro" height="150" aria-label="Spectrogram of the selected example"></canvas>
+  <canvas id="miniStrip" height="30" aria-label="Phonemes of the selected example"></canvas>
+  <p>Voiced sounds glide between targets over 2–4 frames rather than jumping, and diphthongs ("eye", "oh", "ay") move to a second target during their last two thirds. The shortest sound is one 20 ms frame, which is just enough for a plosive burst.</p>
+</section>
+
+<!-- ===================================================== pipeline -->
+<section id="pipeline" class="prose">
+  <h2>5. From text to registers</h2>
+  <figure class="diagram">
+    <svg id="pipeDiagram" viewBox="0 0 760 210" role="img" aria-labelledby="pipeTitle"><title id="pipeTitle">Pipeline: text, words, phonemes, frame states with pitch, registers, AY chip</title></svg>
+    <figcaption>The first three stages can run on a PC; only the last two have to run on the target machine.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li><b>Words to phonemes.</b> Each word is looked up in the CMU Pronouncing Dictionary (about 126,000 English words and 135,000 pronunciations in ARPAbet, with stress marks). Unknown words are tried as a known word plus an ending ("-s", "-ed", "-ing" and so on), then as two known words joined, and only then guessed from letter rules. Guesses are shown in the playground so you can fix them with <code>/phonemes/</code>. Numbers are read as words. Words with two pronunciations ("live", "read") can be clicked to switch.</li>
+    <li><b>Phonemes to frame states.</b> Each phoneme becomes a few 20 ms frames: what is voiced, which formants, and which noise. This stage handles lengths (stressed vowels longer, unstressed shorter), glides and plosive bursts.</li>
+    <li><b>Pitch.</b> The phrase falls about 20% from start to end. Stressed vowels rise, and a "?" rises from its last stressed vowel. <code>^150</code> sets the pitch in text, <code>@140</code> on a phoneme overrides it, and each frame moves halfway to its target so the pitch glides.</li>
+    <li><b>State to registers.</b> Every frame: the envelope period from the pitch, each formant locked to a harmonic, then the mixer, volumes and noise period. This is the only arithmetic the target machine has to do each frame.</li>
+    <li><b>The chip</b> makes the sound for the next 20 ms by itself.</li>
+  </ol>
+  <p>In phoneme mode you can write ARPAbet directly, with stress, length in frames and pitch: <code>HH AH0 L OW1:15@140 | W ER1 L D ?</code>, and <code>,:10</code> is a pause of exactly ten frames.</p>
+</section>
+
+<!-- ===================================================== cpu -->
+<section id="cpu" class="prose">
+  <h2>6. What the CPU has to do</h2>
+  <p>Very little, and the amount is fixed per frame rather than per sample. Once per 50 Hz frame, the player:</p>
+  <ol class="steps">
+    <li>counts down the current run of identical frames, and reads the next state when it ends (1–4 bytes);</li>
+    <li>looks up the envelope period for the current pitch;</li>
+    <li>locks each sounding formant: about four 8×8 multiplies and one table read each, for one to three formants;</li>
+    <li>writes the registers that changed, plus the shape register at a voice onset.</li>
+  </ol>
+  <div class="tiles" id="vectrexTiles"></div>
+  <p class="dim">Measured on the VTX Vectrex cartridge player in the MAME emulator, playing every phrase of a game's speech three times (3,189 frames, 0 register mismatches against the reference model). That player drives F1 and F2 on channels A and B with noise on B, and leaves channel C to the game's sound effects. A Vectrex frame is 30,000 cycles. Physical hardware has not been measured.</p>
+  <p>The Vectrex cartridge stores speech as <b>words</b>: runs of identical states, each a header byte plus up to three operand bytes, with phrases made of word numbers. 27 words, with their phrases, alternatives and tables, came to about 1.1 KB. The player plus its 128-byte reciprocal table, as built in a test cartridge with that data, came to about 2 KB, and it uses 20 bytes of RAM.</p>
+</section>
+
+<!-- ===================================================== other machines -->
+<section id="machines" class="prose">
+  <h2>7. On other AY machines</h2>
+  <p>Nothing here is specific to the Vectrex. Any machine with an AY or YM chip and a 50 Hz interrupt could do the same. The data is the same everywhere; only the clock-dependent constants change (the lock's <i>K</i>, and the envelope period for each pitch). The playground's <b>Machine</b> setting plays your text at each chip's clock, and on the YM2149's 32-step envelope for the ST.</p>
+  <div class="row wrap">
+    <label class="check"><input id="changedOnly" type="checkbox" checked> Write only the registers that changed</label>
+    <span class="dim">Costs are for the phrase in the playground.</span>
+  </div>
+  <div class="tablewrap">
+    <table class="machines" id="machineTable">
+      <thead><tr><th>Machine</th><th>Chip and clock</th><th>CPU</th><th>Speech per frame, mean / max</th><th class="barcol">Share of a frame (mean, max mark)</th><th>Sample playback, rough</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="note"><b>These are estimates</b>, except where the Vectrex figure is marked as measured. The model is a fixed cost per frame, plus a cost per locked formant, plus a cost per register written. Its Vectrex coefficients are fitted to the measured player: on similar phrases it gives 578 / 1,080 cycles against the measured 641 / 1,103. The other machines use instruction timings for the same steps, with the fixed part scaled from that fit. None of them has been built or measured. The sample-playback column is a rough share of the CPU for 4-bit samples at 8 kHz, for comparison.</p>
+  <div id="machineNotes" class="machine-notes"></div>
+</section>
+
+<!-- ===================================================== keeping it small -->
+<section id="small" class="prose">
+  <h2>8. Keeping it small</h2>
+  <p>Speech that is stored compactly and played with little work fits in a corner of a cartridge or a game frame. The chart compares ways of storing the phrase in the playground, and the list below covers both storage and CPU time.</p>
+  <figure class="chart">
+    <div id="storageChart" class="hbars" role="img" aria-label="Bytes needed to store the playground phrase in five formats"></div>
+    <figcaption>Bytes to store the playground's phrase, to scale (linear). The 8 kHz, 4-bit sample figure is for the same length of sound; the percentages compare each format with it.</figcaption>
+  </figure>
+
+  <h3>How the state runs are stored</h3>
+  <p>The cartridge format does not store registers at all. It stores <b>runs</b>: stretches of frames where nothing changes. That is the voicing, the noise, and F1 and F2 in 16 Hz units, one byte each. Each run is one header byte, followed only by the bytes that changed. The player rebuilds the registers from the run every frame. Below is the phrase from the playground. <b>Click a run or a byte.</b></p>
+  <div class="panel bytemap">
+    <div class="legend">
+      <span><i class="bkey header"></i>header</span><span><i class="bkey f1"></i>F1</span><span><i class="bkey f2"></i>F2</span>
+      <span><i class="bkey noise"></i>noise</span><span><i class="bkey end"></i>end ($FF)</span>
+    </div>
+    <canvas id="runStrip" height="44" aria-label="Runs of identical frames over time; click one"></canvas>
+    <div id="byteGrid" class="bytegrid" aria-label="The stored bytes"></div>
+    <div id="byteDetail" class="bytedetail" aria-live="polite"></div>
+  </div>
+  <ul class="ideas">
+    <li><b>Write only what changed.</b> Keep a copy of the registers and write only the ones that differ. For the current phrase that is <span id="writesMean">–</span> writes per frame on average instead of 14. On the CPC, where every write goes through the PPI, this matters most.</li>
+    <li><b>Store states, not registers.</b> Runs of identical states (voicing, noise, F1 and F2 in one byte each) are far smaller than 14 bytes a frame. The registers are rebuilt from a state each frame, which is the lock arithmetic above.</li>
+    <li><b>Fixed pitch, no lock.</b> A robot monotone at one pitch can have its tone periods computed in advance: no multiplies at all, only table reads and writes. With the lock off, a formant's period no longer depends on the pitch and can sit in the phoneme table.</li>
+    <li><b>Drop F3.</b> F3 carries about a tenth of the energy. Without it, speech uses two channels and leaves C for music or effects. It saves one lock and two or three register writes per frame. The <i>Layout</i> setting in the playground does this.</li>
+    <li><b>Phonemes on the target.</b> Storing one byte per phoneme instead of per run is the smallest format (about 7 bytes per second of speech, less than the text itself). The catch is a synthesiser and a phoneme table on the target, estimated at 1–1.4 KB of code and data, and more work per frame. It pays off only for a lot of speech.</li>
+    <li><b>Run from the frame interrupt.</b> The update is short and regular, so it fits in the 50 Hz interrupt on every machine above. If a game's main loop runs late, count the missed frames and step the speech forward, so it keeps real time.</li>
+  </ul>
+</section>
+
+<!-- ===================================================== further optimisations -->
+<section id="further" class="prose">
+  <h2>9. Further possible optimisations</h2>
+  <p class="note"><b>Speculation.</b> None of these has been built or measured. They are ideas for the next step, with rough costs.</p>
+  <p>The player never divides: the harmonic lock uses multiplies and a reciprocal table (<a href="#buzz">section 3</a>). What is left is about four or five multiplies for each sounding formant, every frame. On the Vectrex that is roughly 130 cycles a formant, about 40% of the player's time with two formants. A Z80 has no multiply instruction, so there it is the largest single cost, about 320 T-states a formant. These ideas remove some or all of those multiplies.</p>
+
+  <h3>Fixed pitches: one table per pitch</h3>
+  <p>If speech uses only a few pitches, for example eight voice settings rather than a free intonation curve, every answer can be stored: <code>TP[pitch][n] = round(16 × EP / n)</code> for n = 1–63. The formant is stored as its harmonic number at a base pitch, and a small map converts that number for each of the other pitches. Each formant then costs two table reads and no multiplies, and the lock stays exact. The cost is about 190 bytes of table per pitch (126 for the periods and 64 for the map), so eight pitches take about 1.5 KB. The pitch can then only step between the stored values, not glide.</p>
+
+  <h3>Incremental update: no multiplies on most frames</h3>
+  <p>Within a run of the same sound, the harmonic number <i>n</i> rarely changes while the pitch moves a step or two per frame. Keep the tone period and a remainder so that <code>16 × EP = TP × n + r</code>, and adjust them as EP moves, as a line-drawing algorithm does:</p>
+<pre><code>EP up by one:    r += 16;  while r >= n: r -= n, TP += 1
+EP down by one:  r -= 16;  while r < 0:  r += n, TP -= 1</code></pre>
+  <p>For any n of 2 or more, that is a few adds and compares, and the result is the same as dividing (an offset of n/2 in r gives rounding instead of truncation). Only when n changes, usually where a new run starts, does the player fall back to the reciprocal multiply. Free intonation and the exact lock both stay. The cost is no extra ROM and about 3–4 bytes of RAM per formant (TP, n and r).</p>
+
+  <h3>Log units: adds and table reads only</h3>
+  <p>Store the pitch and the formants as steps of a sixteenth of a semitone. A ratio then becomes a difference: the nearest harmonic is <code>NEAREST[logF − logf0]</code>, and the tone period is <code>EXP[C − logf0 − LOG[n]]</code>. The tables cover the formants' range of tone periods and would take about 2 KB. The weakness is that a table period can be one off from the exactly rounded value, which makes the sound slightly less periodic. That would need measuring before it could be trusted.</p>
+
+  <h3>Lock once per run</h3>
+  <p>Do the lock only when a new run of the same sound starts, and leave the tone periods alone while the pitch glides within it. The multiplies are spread over the frames of each run, and nothing is added to ROM or RAM. During pitch glides the formants drift off the harmonics.</p>
+
+  <h3>No lock, or everything worked out in advance</h3>
+  <p>With the lock off, a formant's period depends only on the sound, not the pitch, so the player just reads it: from a 510-byte table indexed by the formant byte, or stored directly in the speech data. The envelope still strikes the tones, so the voice still buzzes, but less cleanly in a mix. Going further, the tone periods can be worked out entirely in advance and stored in the speech data: no arithmetic at all, but the pitch can no longer change while playing, and every run grows.</p>
+
+  <h3>Comparison</h3>
+  <p class="dim">"Fixed ROM" is paid once per program, however much speech there is. "Speech data" is the change to the data for each run of identical frames; today a run is a header byte plus 0–3 operand bytes.</p>
+  <div class="tablewrap">
+    <table class="opts">
+      <thead><tr><th>Approach</th><th>Work per formant, per frame</th><th>Fixed ROM</th><th>Speech data</th><th>Lock</th><th>Pitch</th></tr></thead>
+      <tbody>
+        <tr><td><b>Current</b></td><td>4–5 multiplies</td><td>128 B</td><td>no change</td><td>nearest harmonic</td><td>free</td></tr>
+        <tr><td><b>Fixed pitches</b></td><td>2 table reads</td><td>about 190 B per pitch (1.5 KB for 8)</td><td>no change</td><td>exact</td><td>stored pitches only</td></tr>
+        <tr><td><b>Incremental</b></td><td>a few adds; multiplies only when <i>n</i> changes</td><td>128 B (as now)</td><td>no change</td><td>exact</td><td>free</td></tr>
+        <tr><td><b>Log units</b></td><td>adds and 2–3 table reads</td><td>about 2 KB</td><td>no change (one byte per formant)</td><td>sometimes one off</td><td>free</td></tr>
+        <tr><td><b>Lock once per run</b></td><td>4–5 multiplies per run, not per frame</td><td>128 B</td><td>no change</td><td>drifts in glides</td><td>free</td></tr>
+        <tr><td><b>No lock</b></td><td>1 table read</td><td>510 B (or none)</td><td>none, or +½–1 B per formant if the period is stored</td><td>none</td><td>free</td></tr>
+        <tr><td><b>All in advance</b></td><td>none</td><td>none</td><td>+½–1 B per formant per run</td><td>as computed</td><td>fixed when the data is made</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>The incremental update looks the most promising for general speech: no extra ROM, the exact lock and free intonation. For a game that speaks at a few fixed pitches, the pitch table is simpler. On the Vectrex the saving would be modest (perhaps 200–250 cycles a frame); on the Z80 machines it could roughly halve the cost of speech.</p>
+</section>
+
+<!-- ===================================================== features -->
+<section id="features" class="prose">
+  <h2>10. What else it can do</h2>
+  <div class="two">
+    <div>
+      <h3>In the playground now</h3>
+      <ul>
+        <li>Any English text, with dictionary, endings, compounds and guesses; numbers.</li>
+        <li>Questions that rise, stressed syllables, a falling phrase.</li>
+        <li>Speed, pitch marks (<code>^150</code>), per-phoneme length and pitch.</li>
+        <li><b>Singing</b>: every phoneme can have its own pitch (try the "Daisy Bell" example).</li>
+        <li>Vibrato, and screams (a high, wobbling open vowel).</li>
+        <li>Voice size: formants scaled up for a smaller vocal tract.</li>
+        <li>A two-channel layout that leaves channel C free for the game.</li>
+        <li>Whisper (an experiment: formant tones ANDed with noise, no envelope). It has not been checked by ear.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Possible next</h3>
+      <ul>
+        <li>Talking over music: the voice needs the envelope and two channels, so music would keep one channel and avoid the envelope while speech plays.</li>
+        <li>Formant levels: F2 could move off the envelope onto a steady quieter volume for vowels such as "oo", trading buzz for balance.</li>
+        <li>A per-machine exporter: write the state runs and a player for Z80 or 68000 targets.</li>
+        <li>Fitting the phoneme table to recordings of real speech, rather than textbook formants.</li>
+        <li>On the YM2149, the 32-step envelope gives a smoother decay per pitch period, and that is worth tuning for.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== credits -->
+<section id="credits" class="prose">
+  <h2>Credits and licences</h2>
+  <ul class="credits">
+    <li><b>Ayumi</b>, the AY-3-8910/YM2149 emulator that plays everything here: Peter Sovietov; JavaScript port by Alexander Kovalenko. MIT licence, included unmodified: <a href="vendor/ayumi.js">vendor/ayumi.js</a>, <a href="vendor/AYUMI_LICENSE">licence</a>. Source: github.com/alexanderk23/ayumi-js.</li>
+    <li><b>The CMU Pronouncing Dictionary</b>, Carnegie Mellon University. BSD-style licence, included unmodified (gzip-compressed): <a href="vendor/cmudict.dict.gz">vendor/cmudict.dict.gz</a>, <a href="vendor/CMUDICT_LICENSE">licence</a>. Source: github.com/cmusphinx/cmudict.</li>
+    <li><b>Vowel formants</b>: G. E. Peterson and H. L. Barney, "Control methods used in a study of the vowels", <i>Journal of the Acoustical Society of America</i> 24 (1952). Consonant values are hand-made starting points.</li>
+    <li><b>Inspiration</b>: SAM (Software Automatic Mouth, 1982) and the formant synthesisers before it. No code from them is used.</li>
+    <li><b>"Shall we play a game?"</b>: the opening line's word lengths and pitches were measured from the film <i>WarGames</i> (1983), so each word sits on its own flat pitch as in the film. Only the timing and pitch numbers are used; no audio from the film is included.</li>
+    <li><b>"Daisy Bell"</b> (Harry Dacre, 1892) is in the public domain.</li>
+    <li>The voice model was developed for VTX, a language and toolchain for the Vectrex, where it runs on a real cartridge player. This page is a JavaScript port that produces exactly the same registers as the reference model (a test checks 2,631 frames).</li>
+  </ul>
+  <p class="dim">VTX Speech © 2026 Michael Simonds. MIT licence (<a href="LICENSE">LICENSE</a>); the files in <code>vendor/</code> keep their own licences.</p>
+</section>
+</main>
+
+<script src="vendor/ayumi.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/render.js"></script>
+<script src="js/machines.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
