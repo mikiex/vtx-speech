@@ -73,6 +73,11 @@ let failures = 0;
 function check(ok, what) { console.log(`${ok ? "ok  " : "FAIL"} ${what}`); if (!ok) failures++; }
 
 await send("Runtime.enable"); await send("Log.enable"); await send("Page.enable");
+// Downloads go into build/, never into the person's Downloads folder.
+const DOWNLOADS = path.join(ROOT, "build", "test_downloads");
+fs.rmSync(DOWNLOADS, { recursive: true, force: true });
+fs.mkdirSync(DOWNLOADS, { recursive: true });
+await send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: DOWNLOADS, eventsEnabled: true });
 await view(1280, 900, false);
 await send("Page.navigate", { url: URL_ });
 for (let i = 0; i < 100; i++) {
@@ -120,6 +125,37 @@ await sleep(300);
 check(await js("document.querySelector('input[name=mode]:checked').value === 'phonemes' && /L AY1 V/.test(document.getElementById('say').value)"), "edit as phonemes");
 await js(`(() => { const s = document.getElementById('say'); s.value = 'Shall we play a game?'; document.querySelector('input[name=mode][value=text]').checked = true; document.getElementById('speak').click(); })()`);
 await sleep(300);
+
+// SpeakJet mode: allophone codes become phonemes and speak.
+await js(`(() => { const s = document.getElementById('preset'); s.value = [...s.options].findIndex((o) => o.text.startsWith('SpeakJet')) - 1; s.dispatchEvent(new Event('change')); })()`);
+await sleep(300);
+check(await js("document.getElementById('error').textContent === '' && document.querySelector('input[name=mode]:checked').value === 'speakjet' && document.querySelectorAll('#pronounced .w').length > 0 && document.getElementById('say').value.startsWith(String.fromCharCode(92) + 'HE')"), "SpeakJet mode speaks");
+
+// The Vectrex export: the example phrases compile, and a bad line is reported.
+await js("document.getElementById('vxExport').click()");
+await sleep(300);
+check(await js("document.getElementById('vxResult').textContent.includes('20 words') && document.getElementById('vxResult').textContent.includes('Say_Taunt')"), "Vectrex export of the example phrases");
+await sleep(500);
+check(fs.existsSync(path.join(DOWNLOADS, "speech_data.asm")) && /^VS_Words:/m.test(fs.readFileSync(path.join(DOWNLOADS, "speech_data.asm"), "utf8")),
+  "the download lands in build/test_downloads, as AS09 data");
+// Save into a folder: a stand-in for the folder picker records what is written.
+await js(`(() => {
+  window.__saved = {};
+  const folder = { name: "mygame", async getFileHandle(name, opts) {
+    if (!(opts && opts.create) && !(name in window.__saved)) { const e = new Error("not found"); e.name = "NotFoundError"; throw e; }
+    return { async createWritable() { let text = ""; return { async write(t) { text += t; }, async close() { window.__saved[name] = text; } }; } };
+  } };
+  window.showDirectoryPicker = async () => folder;
+})()`);
+check(await js("!document.getElementById('vxFolder').hidden"), "Chrome can save into folders: the folder button is shown");
+await js("document.getElementById('vxFolder').hidden = false; document.getElementById('vxFolder').onclick = null");
+await js(`new Promise((done) => { document.getElementById('vxFolder').addEventListener('click', () => setTimeout(done, 1500), { once: true }); document.getElementById('vxFolder').click(); })`).catch(() => {});
+await sleep(300);
+check(await js("!!window.__saved && /^VS_Clock_EP:/m.test(window.__saved['speech_data.asm'] || '') && /^Speech_Service:/m.test(window.__saved['vtx_speech.asm'] || '') && /Saved into/.test(document.getElementById('vxResult').textContent)"),
+  "Save into a folder writes speech_data.asm and the player");
+await js("(() => { const t = document.getElementById('vxPhrases'); t.value = 'Bad = ,:99 hello'; document.getElementById('vxExport').click(); })()");
+await sleep(200);
+check(await js("document.getElementById('vxResult').textContent.includes('a pause is 1..62 frames')"), "Vectrex export reports a bad phrase");
 
 // The buzz: locked vs free energy on harmonics.
 const harm = () => js("parseFloat(document.getElementById('bzReadout').textContent.match(/harmonics[^:]*: ([\\d.]+)%/)[1])");

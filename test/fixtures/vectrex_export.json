@@ -1,0 +1,223 @@
+{
+ "source": "; The Verzerk speech project, as a phrase list\n@get = get *0.785\n@kill = kill *0.785\n@shoot = shoot *1.0\n@the = the *1.706\n@humanoid = humanoid *0.759\n@intruder = intruder *0.714\n@him = him *0.785\n@alert = alert *0.785\n@got = got *0.898\n@you = you *0.785\n@chicken = chicken *0.574\n@fight = fight *0.642\n@like = like *0.626\n@a = a#2 *0.875\n@robot = robot *0.826\n@must = must *0.818\n@will = will *0.785\n@not = not *0.635\n@escape = escape *0.637\n@coin = coin *0.798\n@detected = detected *0.74\n@in = in *1.636\n@pocket = pocket *0.615\n@destroy = destroy *0.785\n@attack = attack *0.785\n@charge = charge *0.785\n@it = it *1.032\n@we = we *1.0\n@have = have *1.0\n@human = human *1.0\n@what = what *1.0\n@are = are *1.0\n@your = your *1.0\n@orders = orders *1.0\nP_chatter_0 = ^c? {get|kill|shoot|destroy|attack|charge} {the humanoid|the intruder|him|it}\nP_easter_0 = ^c3 got the humanoid ^c5 got the intruder\nP_easter_1 = ^c5 coin detected in pocket\nP_easter_2 = ^c? kill the chicken\nP_otto_0 = ^c3 intruder alert intruder alert\nP_death_0 = ^c3 got you humanoid\nP_death_1 = ^c3 got the humanoid ^c5 got the intruder\nP_exit_robots_0 = ^c3 chicken ,:8 fight like a robot\nP_exit_clear_intruder_0 = ^c? the {humanoid|intruder} must not escape\nP_exit_clear_humanoid_0 = ^c? the humanoid will not escape\nP_attract_detected_0 = ^c3 we have detected a human\nP_attract_orders_0 = ^c6 what are your orders\nP_attract_destroy_0 = ^c3 destroy the human\n",
+ "word_order": [
+  "get",
+  "kill",
+  "shoot",
+  "the",
+  "humanoid",
+  "intruder",
+  "him",
+  "alert",
+  "got",
+  "you",
+  "chicken",
+  "fight",
+  "like",
+  "a",
+  "robot",
+  "must",
+  "will",
+  "not",
+  "escape",
+  "coin",
+  "detected",
+  "in",
+  "pocket",
+  "destroy",
+  "attack",
+  "charge",
+  "it",
+  "we",
+  "have",
+  "human",
+  "what",
+  "are",
+  "your",
+  "orders"
+ ],
+ "noises": [
+  [
+   2,
+   10
+  ],
+  [
+   2,
+   12
+  ],
+  [
+   3,
+   5
+  ],
+  [
+   3,
+   6
+  ],
+  [
+   3,
+   7
+  ],
+  [
+   5,
+   10
+  ],
+  [
+   5,
+   12
+  ],
+  [
+   8,
+   9
+  ],
+  [
+   8,
+   11
+  ],
+  [
+   10,
+   7
+  ],
+  [
+   10,
+   8
+  ]
+ ],
+ "words": [
+  "b1104005901684901a7e901e79942173024001410aff",
+  "024106410a90148690168390178093187c90175f931642ff",
+  "47069b1336034001410aff",
+  "f81002901654901c5190224e95284aff",
+  "420a93108190116f90125c901249951336a0113aa3103e901641901c4490224790284aa01c5aa3106a90155d901a4f901f42902434902338902143901e4e901c58901a6390176e901579b1104000ff",
+  "94187ca01473a2106a024001400a90135992134290133f90133c901339951336b1104000901669901962901c5b911f54ff",
+  "420a96187ca0145da3103eff",
+  "93284a901f46931642901946901b4b901d50951f54024001410aff",
+  "b2104005901978902067902755982e44034001410aff",
+  "93108190116f90125c901249951336ff",
+  "014001400a420690147390167690177991187c014106400a90187a901d6a90235aa01962a1106aff",
+  "4304942e44902a4c90275490245c902064901d6c90197390167b024001400aff",
+  "931642901c42902243902844902e44902c47902950902558902161901e69901a7290167b024106400aff",
+  "942173902174901f76901e79901c7b901a7d901980901782901685901487ff",
+  "94134290173f901c3b902038912434902234902134901f34901d33901c33901a33901833901632b1104007901737901f3b902640942e44024001410aff",
+  "a4103e901641901c4490224793284a4601024001410aff",
+  "93122690143c90155190176793187c90175f931642ff",
+  "a3106a901761901f5790264e942e44024001400aff",
+  "92187c4401024106400a901684901a7e901e79902173902075901e79901b7c90197f9017839015860240084009ff",
+  "024106410a901774901b5f901f4a912434902337902140901f48901e51901c59901a6290186a90167290157ba01273a3106aff",
+  "b110400090147390167690177990187c024001400a901671901a72901e72932173024106400a024001400a901867901d5d90235490284ab1104000ff",
+  "97187ca01473a8106aff",
+  "0140084009901737901f3b902640942e44014106400a90187a901d6a90235a014001400aff",
+  "b110400090147390167690177990187c4501024001410a90135993134290173f901c3b902038912434902337902140901f48901e51901c59901a6290186a90167290157bff",
+  "93284a024001410a90186f901e6e90246d96296c024106410aff",
+  "024001410a440690196590205a90274f962e44902043931342b11040004305ff",
+  "98187c034001410aff",
+  "94122690124090125b90117598118fff",
+  "430a9c296cf01c03f41003ff",
+  "430a94108190116f90125c901249981336a0113aa4103e901641901c4490224791284aa01c5aa4106aff",
+  "94122690182f901d3890234195284a034001410aff",
+  "9c2e44902043941342ff",
+  "94108190156e901a5b901f48992434901c3b941342ff",
+  "9c2434901c3b941342b2104000901669901962901c5b931f54f01700f51000ff"
+ ],
+ "seqs": [
+  {
+   "label": "VS_Alt_0",
+   "bytes": "00ff"
+  },
+  {
+   "label": "VS_Alt_1",
+   "bytes": "01ff"
+  },
+  {
+   "label": "VS_Alt_2",
+   "bytes": "02ff"
+  },
+  {
+   "label": "VS_Alt_3",
+   "bytes": "17ff"
+  },
+  {
+   "label": "VS_Alt_4",
+   "bytes": "18ff"
+  },
+  {
+   "label": "VS_Alt_5",
+   "bytes": "19ff"
+  },
+  {
+   "label": "VS_Alt_6",
+   "bytes": "0304ff"
+  },
+  {
+   "label": "VS_Alt_7",
+   "bytes": "0305ff"
+  },
+  {
+   "label": "VS_Alt_8",
+   "bytes": "06ff"
+  },
+  {
+   "label": "VS_Alt_9",
+   "bytes": "1aff"
+  },
+  {
+   "label": "VS_Phrase_chatter_0",
+   "bytes": "88890600000001000200030004000589040006000700080009ff"
+  },
+  {
+   "label": "VS_Phrase_easter_0",
+   "bytes": "8308030485080305ff"
+  },
+  {
+   "label": "VS_Phrase_easter_1",
+   "bytes": "8513141516ff"
+  },
+  {
+   "label": "VS_Phrase_easter_2",
+   "bytes": "8801030aff"
+  },
+  {
+   "label": "VS_Phrase_otto_0",
+   "bytes": "8305070507ff"
+  },
+  {
+   "label": "VS_Phrase_death_0",
+   "bytes": "83080904ff"
+  },
+  {
+   "label": "VS_Phrase_death_1",
+   "bytes": "8308030485080305ff"
+  },
+  {
+   "label": "VS_Phrase_exit_robots_0",
+   "bytes": "830ac80b0c0d0eff"
+  },
+  {
+   "label": "VS_Alt_10",
+   "bytes": "04ff"
+  },
+  {
+   "label": "VS_Alt_11",
+   "bytes": "05ff"
+  },
+  {
+   "label": "VS_Phrase_exit_clear_intruder_0",
+   "bytes": "88038902001200130f1112ff"
+  },
+  {
+   "label": "VS_Phrase_exit_clear_humanoid_0",
+   "bytes": "880304101112ff"
+  },
+  {
+   "label": "VS_Phrase_attract_detected_0",
+   "bytes": "831b1c140d1dff"
+  },
+  {
+   "label": "VS_Phrase_attract_orders_0",
+   "bytes": "861e1f2021ff"
+  },
+  {
+   "label": "VS_Phrase_attract_destroy_0",
+   "bytes": "8317031dff"
+  }
+ ]
+}

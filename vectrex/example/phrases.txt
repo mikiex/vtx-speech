@@ -1,0 +1,11 @@
+; Example cartridge phrases. Buttons 1-4 say them in order. Syntax: ../README.md
+;   python vectrex/editor.py vectrex/example/phrases.txt
+;
+; Say_Game: the film's cadence. Each pitch step is a /phoneme group/ with a
+; voice before it; :n are the film's lengths in frames.
+#voices 68 127
+#voicespeed flat
+Say_Game  = ,:1 ^c0 /SH:7 AE1:5 AA1:6/ ^c3 /L:6/ ^c2 /W:4 IY1:5/ ^c0 /IY1:7/ ^c5 /P:1 L:2/ ^c3 /EY1:16 AH0:15 G:7/ ^c7 /EY1:8 M:9/
+Say_Hello = ^c5 hello ,:8 i am a vectrex
+Say_Alert = ^c3 intruder alert ,:6 intruder alert
+Say_Taunt = ^c? {get|kill|destroy} {the humanoid|the intruder|it}

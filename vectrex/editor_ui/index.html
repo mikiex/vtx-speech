@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VTX Speech Editor</title>
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<header>
+  <h1><b>VTX Speech</b> editor</h1>
+  <span id="path" class="dim mono"></span>
+  <div class="seg" id="viewSwitch"><button data-view="list" class="on">Phrases</button><button data-view="file">File</button></div>
+  <button id="save" title="Write the phrase file (Ctrl+S)">Save</button>
+  <button id="export" class="primary" title="Save, then write speech_data.asm beside the phrase file">Export speech_data.asm</button>
+  <button id="build" title="Save, export, and build a test cartridge with AS09: button 1 next phrase, button 2 again">Build test cartridge</button>
+  <button id="run" title="Build the test cartridge and play it in a MAME window: button 1 (Left Ctrl) says the next phrase, button 2 (Left Alt) says it again">▶ Run in MAME</button>
+  <button id="check" title="Say every phrase on the emulated cartridge (MAME) and compare every frame with what you hear here">Check in MAME</button>
+  <button id="helpToggle" title="Show or hide the help">? Help</button>
+  <button id="theme" class="icon" title="Light or dark">◐</button>
+  <span id="status" aria-live="polite"></span>
+</header>
+
+<main>
+  <section>
+    <div class="panel" id="helpPanel" data-key="help">
+      <div class="panel-head"><h2>Help</h2><span class="spacer"></span><button id="helpClose" class="small icon" title="Hide the help (? Help shows it again)">✕</button></div>
+      <table>
+        <tr><td><code>Label = phrase</code></td><td>label: <code>[A-Za-z_]\w*</code>, not a register, not <code>VS_*</code>/<code>Speech_*</code></td></tr>
+        <tr><td><code>hello</code></td><td>English word</td></tr>
+        <tr><td><code>/HH AH0 L OW1:6/</code></td><td>ARPAbet word, stress 0–2, <code>:n</code> frames</td></tr>
+        <tr><td><code>\HE \EH \LE \OWWW</code></td><td>SpeakJet word (mnemonics or 128–199); <code>\PITCH n</code> → nearest voice, <code>\SPEED</code> dropped</td></tr>
+        <tr><td><code>^c0</code>…<code>^c7</code>, <code>^c?</code></td><td>voice (pitch + speed), random voice</td></tr>
+        <tr><td><code>,:n</code></td><td>n frames silence, 1–62 (50 fps)</td></tr>
+        <tr><td><code>{a b|c}</code></td><td>random alternative, ≤ 32</td></tr>
+        <tr><td><code>@live = live#1 *1.2</code></td><td>word pronunciation (English, <code>/…/</code>, SpeakJet, <code>#n</code> = dictionary's n-th) and length 0.25–4</td></tr>
+        <tr><td><code>#speed 1.2</code></td><td>all lengths ÷ 1.2</td></tr>
+        <tr><td><code>#voices 68 127</code></td><td>voice 0..7 pitches, geometric, Hz</td></tr>
+        <tr><td><code>#voicespeed flat</code></td><td>voices change pitch only</td></tr>
+      </table>
+      <p>64 distinct words. Pitch is per voice: split a word into groups with a voice before each to step it (see <code>Say_Game</code>). English: dictionary → word + ending → two words → letter rules (guessed). Run in MAME: button 1 (Left Ctrl) next, button 2 (Left Alt) again.</p>
+    </div>
+
+    <div id="listView">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Phrases</h2><span class="spacer"></span>
+          <span class="dim">Write each as</span>
+          <div class="seg" id="newMode">
+            <button data-mode="english" class="on">English</button><button data-mode="phonemes">Phonemes</button><button data-mode="speakjet">SpeakJet</button>
+          </div>
+          <button id="addPhrase">+ Add phrase</button>
+        </div>
+        <div id="phrases"></div>
+        <p class="dim">Phonemes: words split by <code>|</code>. Switching to Phonemes or SpeakJet converts; switching back restores the English. Slider: starting voice (? = random).</p>
+      </div>
+    </div>
+
+    <div id="fileView" class="panel" hidden>
+      <div class="panel-head"><h2>The phrase file</h2></div>
+      <textarea id="source" spellcheck="false" aria-label="The phrase file"></textarea>
+    </div>
+    <div id="problems" class="problems" aria-live="polite"></div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Voice</h2><span class="spacer"></span><span class="dim">Written into the data as <code>#speed</code>, <code>#voicespeed</code> and <code>#voices</code></span></div>
+      <div class="slider"><span>Speed (every word)</span><input id="speed" type="range" min="0.5" max="2" step="0.05" value="1"><output id="speedOut"></output></div>
+      <label class="check"><input id="flatSpeed" type="checkbox"> Every voice at the same speed (a voice changes only the pitch: <code>#voicespeed flat</code>)</label><br>
+      <label class="check"><input id="arcadeVoices" type="checkbox" checked> Arcade voices (1220 / (16 − voice) Hz)</label>
+      <div class="slider"><span>Lowest voice (0)</span><input id="voiceLow" type="range" min="40" max="300" step="1" value="76"><output id="voiceLowOut"></output></div>
+      <div class="slider"><span>Highest voice (7)</span><input id="voiceHigh" type="range" min="60" max="600" step="1" value="136"><output id="voiceHighOut"></output></div>
+      <div class="voices" id="voices"></div>
+    </div>
+
+    <div class="panel" id="usePanel" hidden>
+      <div class="panel-head"><h2>Use in your game</h2><span class="spacer"></span><button id="copySnippet" class="small">Copy</button></div>
+      <p class="dim" id="useFiles"></p>
+      <pre id="snippet" class="snippet"></pre>
+      <p class="dim">See <code>vectrex/README.md</code>.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Listen</h2><span class="spacer"></span>
+        <label class="check">? plays as</label>
+        <input id="listenVoice" type="range" min="0" max="8" step="1" value="3" style="width:110px" aria-label="The voice for ? and for words">
+        <output id="listenVoiceOut" class="mono"></output>
+        <button id="playAll">▶ Play all</button>
+        <button id="stop">■ Stop</button>
+      </div>
+      <div class="panel-head"><span class="dim" id="nowPlaying">Play a phrase or a word to see it.</span><span class="spacer"></span>
+        <span class="legend"><span><i style="background:var(--f1)"></i>F1</span><span><i style="background:var(--f2)"></i>F2</span><span><i style="background:var(--noise)"></i>noise</span></span></div>
+      <canvas id="spectro" height="210" tabindex="0" aria-label="Spectrogram of what the cartridge plays; click a frame"></canvas>
+      <canvas id="strip" height="28" aria-label="The words over time"></canvas>
+      <table class="regs" id="regs"></table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Words</h2><span class="spacer"></span>
+        <span class="legend"><span class="tag">dictionary</span><span class="tag derived">derived</span><span class="tag guessed">guessed</span><span class="tag phonemes">phonemes</span><span class="tag speakjet">SpeakJet</span></span></div>
+      <table class="words" id="words"><thead><tr><th>Word</th><th>Phonemes</th><th>From</th><th>Length</th><th class="num">ms</th><th class="num">B</th><th></th></tr></thead><tbody></tbody></table>
+      <p class="dim">✎ writes an <code>@word</code> line. Phoneme and SpeakJet words written in a phrase are edited in the phrase.</p>
+    </div>
+
+    <div class="panel" id="checkPanel" hidden>
+      <div class="panel-head"><h2>Cartridge check (MAME)</h2><span class="spacer"></span><span id="mameInfo" class="dim"></span></div>
+      <div id="mameAsk" hidden>
+        <p class="dim" id="mameProblem"></p>
+        <div class="edit-say"><input id="mamePath" type="text" spellcheck="false" placeholder="C:\mame\mame.exe  or  /usr/bin/mame">
+          <button id="mameUse" class="primary small">Use this MAME</button></div>
+        <p class="dim">Saved in <code>~/.vtx_speech.json</code>. Needs MAME 0.227+ and <code>vectrex.zip</code> in its roms folder.</p>
+      </div>
+      <div id="checkResult"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Size</h2>
+      <div class="tiles" id="tiles"></div>
+    </div>
+  </section>
+</main>
+
+<script src="ayumi.js"></script>
+<script src="render.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

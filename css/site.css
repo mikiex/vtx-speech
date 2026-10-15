@@ -204,3 +204,8 @@ table.opts td { padding: 6px 8px; }
 .cells.raw { display: grid; grid-template-columns: repeat(14, 8px); gap: 2px; max-width: none; }
 .cells i { display: block; width: 8px; height: 8px; border-radius: 1px; background: var(--muted); }
 .cells.stored i { background: var(--accent); }
+
+/* Vectrex export */
+#vxPhrases { display: block; width: 100%; margin: 6px 0; font: 13px/1.45 ui-monospace, Consolas, monospace; background: var(--surface-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.button-link { display: inline-flex; align-items: center; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--text); text-decoration: none; }
+.button-link:hover { border-color: var(--accent); }

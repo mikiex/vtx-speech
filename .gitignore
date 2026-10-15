@@ -3,3 +3,10 @@ node_modules/
 __pycache__/
 *.wav
 ref/
+cfg/
+# made by the editor's Build, Check and Save
+speech_test/
+.editor_backups/
+*.lst
+# Export copies the player beside the data; the example uses ../vtx_speech.asm
+vectrex/example/vtx_speech.asm

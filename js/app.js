@@ -104,6 +104,7 @@
       voice: { pitch: 600, vibrato: { depth: 0.08, rate: 13 }, intonation: FLAT,
         channels: [{ role: "F1", volume: "env" }, { role: "F2", volume: "env" }, { role: "F3", volume: 12 }], noise: { period: 3, channels: [1, 2] } } },
     { name: "Whisper (experiment)", text: "Can you keep a secret?", voice: { whisper: true } },
+    { name: "SpeakJet codes: hello world", text: "\\HE \\EH \\LE \\OWWW \\P5 \\WW \\AXRR \\LO \\DO", mode: "speakjet", voice: {} },
   ];
 
   // --- playground state ----------------------------------------------------
@@ -160,7 +161,11 @@
     $("#error").textContent = "";
     const text = $("#say").value;
     let result;
-    try { result = Speech.speak(voiceFromControls(), text, mode()); } catch (e) {
+    try {
+      // SpeakJet codes become phoneme text first (the chip's allophones as VTX phonemes).
+      result = mode() === "speakjet" ? Speech.speak(voiceFromControls(), Speech.speakJetToPhonemes(text, { pitch: true }), "phonemes")
+        : Speech.speak(voiceFromControls(), text, mode());
+    } catch (e) {
       $("#error").textContent = e.message;
       return null;
     }
@@ -213,7 +218,7 @@
   }
 
   function toPhonemes() {
-    if (mode() === "phonemes") return;
+    if (mode() !== "text") return;
     let tokens;
     try { tokens = Speech.parseText($("#say").value).tokens; } catch (e) { $("#error").textContent = e.message; return; }
     const parts = [];
@@ -769,6 +774,11 @@
       download(new Blob([JSON.stringify(data)], { type: "application/json" }), "vtx_speech_registers.json");
     });
     $("#changedOnly").addEventListener("change", showMachines);
+    $("#vxExport").addEventListener("click", vectrexExport);
+    if (window.showDirectoryPicker) {             // folder saving where the browser can do it
+      $("#vxFolder").hidden = false;
+      $("#vxFolder").addEventListener("click", vectrexSaveToFolder);
+    }
     $("#runStrip").addEventListener("click", (e) => {
       if (!encoded) return;
       const rect = e.target.getBoundingClientRect(), f = (e.clientX - rect.left) / rect.width * current.result.frames.length;
@@ -789,6 +799,58 @@
     drawBuzz();
     loadDictionary().then(() => { build(); playMini(CONSONANTS[0][2], false); });
   }
+  // --- Vectrex export ---------------------------------------------------------
+  // The phrases as AS09 data, or null (problems shown).
+  function compileForVectrex() {
+    const out = $("#vxResult");
+    const c = VectrexExport.compile($("#vxPhrases").value);
+    if (c.problems.length) {
+      out.innerHTML = c.problems.map((p) => `<div class="error">${esc(p)}</div>`).join("");
+      return null;
+    }
+    const wordBytes = c.words.reduce((t, w) => t + w.length, 0);
+    const phraseBytes = c.seqs.reduce((t, s) => t + s.bytes.length, 0);
+    const tables = 16 + 2 * c.names.length + 2 * c.noises.length;
+    c.summary = `${c.names.length} words (${fmt(wordBytes)} bytes), ${c.phrases.length} phrases ` +
+      `(${fmt(phraseBytes)} bytes), tables ${fmt(tables)} bytes: <b>${fmt(wordBytes + phraseBytes + tables)} bytes</b> of data. ` +
+      `Labels: ${c.phrases.map((p) => esc(p.label)).join(", ")}.` +
+      (c.warnings && c.warnings.length ? c.warnings.map((w) => `<div class="error">${esc(w)}</div>`).join("") : "");
+    c.asm = VectrexExport.toAsm(c, "https://mikiex.github.io/vtx-speech/");
+    return c;
+  }
+  function vectrexExport() {
+    const c = compileForVectrex();
+    if (!c) return;
+    download(new Blob([c.asm], { type: "text/plain" }), "speech_data.asm");
+    $("#vxResult").innerHTML = `<b>speech_data.asm</b> downloaded: ${c.summary}`;
+  }
+  // Chrome and Edge can write into a folder the person picks (the File System
+  // Access API): the data and the player go side by side in the game's folder,
+  // not into Downloads. The folder is remembered while the page is open.
+  let vxFolder = null;
+  async function vectrexSaveToFolder() {
+    const c = compileForVectrex();
+    if (!c) return;
+    try {
+      vxFolder = vxFolder || await window.showDirectoryPicker({ id: "vtx-speech-game", mode: "readwrite" });
+      const write = async (name, text) => {
+        const handle = await vxFolder.getFileHandle(name, { create: true });
+        const stream = await handle.createWritable();
+        await stream.write(text);
+        await stream.close();
+      };
+      await write("speech_data.asm", c.asm);
+      let player = "player already there (kept)";
+      try { await vxFolder.getFileHandle("vtx_speech.asm"); } catch (e) {
+        await write("vtx_speech.asm", await (await fetch("vectrex/vtx_speech.asm")).text());
+        player = "player copied beside it";
+      }
+      $("#vxResult").innerHTML = `Saved into <b>${esc(vxFolder.name)}</b>: speech_data.asm, ${player}. ${c.summary}`;
+    } catch (e) {
+      if (e.name !== "AbortError") $("#vxResult").innerHTML = `<div class="error">Could not save there: ${esc(e.message)}</div>`;
+    }
+  }
+
   function download(blob, name) {
     const url = URL.createObjectURL(blob), a = document.createElement("a");
     a.href = url; a.download = name; a.click();

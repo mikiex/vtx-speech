@@ -1,0 +1,11 @@
+; "Shall we play a game?" with the film's cadence, beside a plain version.
+; Film pitches: shall 68 Hz (L 89), we 84->68, play 108->90, a 90, game 90 (-ame 127).
+; #voices fits the 8 voices to those pitches; #voicespeed flat keeps the lengths;
+; each pitch step is a /phoneme group/ with a voice before it.
+
+#voices 68 127
+#voicespeed flat
+
+Say_Film  = ,:1 ^c0 /SH:7 AE1:5 AA1:6/ ^c3 /L:6/ ^c2 /W:4 IY1:5/ ^c0 /IY1:7/ ^c5 /P:1 L:2/ ^c3 /EY1:16 AH0:15 G:7/ ^c7 /EY1:8 M:9/
+
+Say_Plain = ^c3 shall we play a game

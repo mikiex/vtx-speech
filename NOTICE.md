@@ -31,3 +31,22 @@
   domain.
 - SAM (Software Automatic Mouth, 1982) is mentioned as inspiration. No code
   from it is used.
+
+## AS09 (`vectrex/as09/`)
+
+- **What:** AS09 1.42, a 6809 assembler (Windows), used to build the Vectrex
+  player and the editor's test cartridges.
+- **Author:** Frank A. Kingswood, Kingswood Software Development Tools.
+- **Terms:** copyrighted, but may be distributed freely as long as its
+  manual accompanies it and no copyright messages are removed; it may not be
+  sold for more than a reasonable copying fee. The manual, with these
+  terms, is `vectrex/as09/as09.man.txt`.
+- **Changes:** none (`as09_14.exe` SHA-256
+  `cea64d992e2eedb985533e5be019c161fbcddfc9105d9d638f318a537c6f33d8`).
+
+## SpeakJet codes
+
+The SpeakJet allophone and control codes accepted as input
+(`vectrex/vtxspeech/speakjet.py`, `js/speech.js`) follow the SpeakJet user
+manual (Magnevation). Only the code numbers and mnemonics are used, as an
+input format; no SpeakJet software or data is included.

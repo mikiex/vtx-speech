@@ -557,8 +557,10 @@
   //   $FF     end
   const KINDS = { full: 1, murmur: 2, low: 3, bar: 3 };
   const KIND_NAMES = ["silent", "voiced: F1 and F2", "nasal: F1 and a weak F2", "F1 only: a voiced fricative or closure"];
-  function encodeRuns(states) {
-    const runs = [], noiseTable = [];
+  // `noiseTable`: a shared table of [period, volume] pairs (a cartridge has
+  // one for all its words); without it the noises are listed as they come.
+  function encodeRuns(states, noiseTable = []) {
+    const runs = [];
     states.forEach((s, i) => {
       const kind = KINDS[s.voice] || 0, f = s.f || [500, 1500, 2500];
       const q1 = kind ? formantUnits(f[0]) : 0, q2 = kind === 1 || kind === 2 ? formantUnits(f[1]) : 0;
@@ -589,6 +591,84 @@
     });
     bytes.push({ value: 0xff, role: "end", run: null });
     return { runs, bytes, noiseTable };
+  }
+  // --- SpeakJet-style input ---------------------------------------------------
+  // The SpeakJet chip's allophone codes (user manual, "MSA Sound Allophone
+  // Component List") as VTX phonemes: "\HE \EH \LE \OWWW" or "183 131 145 164"
+  // -> "HH EH L OW". The same table and rules as vectrex/vtxspeech/speakjet.py.
+  const SJ_ALLOPHONES = ("IY IH EY EH AY AX UX OH AW OW UH UW MM NE NO NGE NGO LE LO WW RR IYRR EYRR AXRR AWRR " +
+    "OWRR EYIY OHIY OWIY OHIH IYEH EHLL IYUW AXUW IHWW AYWW OWWW JH VV ZZ ZH DH BE BO EB OB DE DO ED OD GE GO " +
+    "EG OG CH HE HO WH FF SE SO SH TH TT TU TS KE KO EK OK PE PO").split(" ");          // codes 128..199
+  const SJ_SOUNDS = {
+    IY: ["IY"], IH: ["IH"], EY: ["EH"], EH: ["EH"], AY: ["AE"], AX: ["AX"], UX: ["AH"], OH: ["AA"], AW: ["AO"],
+    OW: ["OW"], UH: ["UH"], UW: ["UW"], MM: ["M"], NE: ["N"], NO: ["N"], NGE: ["NG"], NGO: ["NG"],
+    LE: ["L"], LO: ["L"], WW: ["W"], RR: ["R"],
+    IYRR: ["IY", "ER"], EYRR: ["EH", "ER"], AXRR: ["ER"], AWRR: ["AA", "ER"], OWRR: ["AO", "ER"],
+    EYIY: ["EY"], OHIY: ["AY"], OWIY: ["OY"], OHIH: ["AY"], IYEH: ["Y", "EH"], EHLL: ["AX", "L"],
+    IYUW: ["Y", "UW"], AXUW: ["AW"], IHWW: ["UW"], AYWW: ["AW"], OWWW: ["OW"],
+    JH: ["JH"], VV: ["V"], ZZ: ["Z"], ZH: ["ZH"], DH: ["DH"],
+    BE: ["B"], BO: ["B"], EB: ["B"], OB: ["B"], DE: ["D"], DO: ["D"], ED: ["D"], OD: ["D"],
+    GE: ["G"], GO: ["G"], EG: ["G"], OG: ["G"],
+    CH: ["CH"], HE: ["HH"], HO: ["HH"], WH: ["HH"], FF: ["F"], SE: ["S"], SO: ["S"], SH: ["SH"], TH: ["TH"],
+    TT: ["T"], TU: ["T"], TS: ["T", "S"], KE: ["K"], KO: ["K"], EK: ["K"], OK: ["K"], PE: ["P"], PO: ["P"],
+  };
+  const SJ_PAUSE_FRAMES = [0, 5, 10, 35, 2, 3, 4];               // 0, 100, 200, 700, 30, 60, 90 ms
+  const SJ_CONTROLS = { FAST: 7, SLOW: 8, STRESS: 14, RELAX: 15, WAIT: 16, SOFT: 18, VOLUME: 20, SPEED: 21,
+    PITCH: 22, BEND: 23, PORTCTR: 24, PORT: 25, REPEAT: 26, CALLPHRASE: 28, GOTOPHRASE: 29, DELAY: 30, RESET: 31 };
+  const SJ_WITH_VALUE = new Set([20, 21, 22, 23, 24, 25, 26, 28, 29, 30]);
+  const isSpeakJet = (text) => text.split(/\s+/).some((t) => t.startsWith("\\"));
+  function sjCode(token) {
+    const name = token.replace(/^\\/, "").toUpperCase();
+    if (/^\d+$/.test(name)) return +name;
+    if (/^P[0-6]$/.test(name)) return +name[1];
+    if (name in SJ_CONTROLS) return SJ_CONTROLS[name];
+    const effect = /^([RABC])([0-9])$|^M([0-2])$/.exec(name);          // sound effects R0..C9, M0..M2
+    if (effect) return effect[3] ? 252 + +effect[3] : 200 + 10 * "RABC".indexOf(effect[1]) + +effect[2];
+    const i = SJ_ALLOPHONES.indexOf(name);
+    if (i >= 0) return 128 + i;
+    throw new SpeechError(`"${token}" is not a SpeakJet code`);
+  }
+  // `options.pitch`: keep \PITCH n as a pitch mark (^n Hz) for the playground,
+  // which can follow any pitch; the cartridge's exporter turns it into voices.
+  function speakJetToPhonemes(text, options = {}) {
+    const out = [], tokens = text.split(/\s+/).filter(Boolean);
+    let factor = 1, stress = null;
+    for (let i = 0; i < tokens.length;) {
+      const code = sjCode(tokens[i++]);
+      if (SJ_WITH_VALUE.has(code)) {
+        if (i >= tokens.length || !/^\\?\d+$/.test(tokens[i])) throw new SpeechError(`"${tokens[i - 1]}" needs a value after it`);
+        const value = +tokens[i++].replace(/^\\/, "");
+        if (code === 30 && pyRound(value / 2) > 0) out.push(`,:${pyRound(value / 2)}`);   // Delay: n x 10 ms
+        if (code === 22 && options.pitch && value > 0) out.push(`^${value}`);                // Pitch, in Hz
+        continue;
+      }
+      if (code <= 6) { if (SJ_PAUSE_FRAMES[code]) out.push(`,:${SJ_PAUSE_FRAMES[code]}`); }
+      else if (code === 7) factor = 0.5;
+      else if (code === 8) factor = 1.5;
+      else if (code === 14) stress = 1;
+      else if (code === 15) stress = 0;
+      else if (code >= 128 && code <= 199) {
+        for (const sym of SJ_SOUNDS[SJ_ALLOPHONES[code - 128]]) {
+          let token = sym;
+          if (P[sym].kind === "vowel" && stress !== null) token += String(stress);
+          if (factor !== 1) token += `:${Math.max(1, pyRound(P[sym].frames * factor))}`;
+          out.push(token);
+        }
+        factor = 1; stress = null;
+      } else if (code >= 200 && code <= 254) throw new SpeechError(`SpeakJet sound effects (${code}) are not supported`);
+      else if (code < 32) { /* Wait, Soft, Reset: nothing to say */ }
+      else throw new SpeechError(`"${tokens[i - 1]}" is not a SpeakJet code`);
+    }
+    if (!out.some((t) => !t.startsWith(","))) throw new SpeechError("the SpeakJet text says nothing");
+    return out.join(" ");
+  }
+
+  // One word's frame states, as the cartridge format stores them: `text` is
+  // English, /phonemes/ or SpeakJet codes; `length` stretches the word (1 = the model's own).
+  function wordStates(text, length = 1, rate = 1) {
+    const { tokens } = isSpeakJet(text) ? parsePhonemes(speakJetToPhonemes(text))
+      : text.startsWith("/") ? parsePhonemes(text.slice(1, -1)) : parseText(text);
+    return phonemeStates(tokens, rate / length);
   }
   function stateRunBytes(states) {
     const e = encodeRuns(states);
@@ -624,7 +704,7 @@
     FRAME_RATE, DEFAULT_CLOCK, MIXER_SILENT, P, DEFAULT_VOICE, SpeechError,
     pyRound, loadDictionary, dictionarySize: () => DICT.size, pronounce, guess, numberWords,
     parseText, parsePhonemes, withDefaults, envelopePeriod, envelopePitch, tonePeriod,
-    formantUnits, nearestK, lockedPeriod, cycleClocks, speak, storage, encodeRuns, KIND_NAMES, NEAREST_RECIP,
+    formantUnits, nearestK, lockedPeriod, cycleClocks, speak, storage, encodeRuns, wordStates, isSpeakJet, speakJetToPhonemes, KIND_NAMES, NEAREST_RECIP,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Speech = api;

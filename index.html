@@ -23,6 +23,7 @@
     <a href="#small">Keeping it small</a>
     <a href="#further">Further ideas</a>
     <a href="#features">Features</a>
+    <a href="#vectrex">Use it</a>
     <a href="#credits">Credits</a>
   </nav>
 </header>
@@ -45,6 +46,7 @@
   <div class="row wrap">
     <label class="inline"><input type="radio" name="mode" value="text"> English</label>
     <label class="inline"><input type="radio" name="mode" value="phonemes" checked> Phonemes</label>
+    <label class="inline" title="SpeakJet allophone codes: \HE \EH \LE \OWWW, or numbers 128-199"><input type="radio" name="mode" value="speakjet"> SpeakJet</label>
     <button id="toPhonemes" class="small">Edit as phonemes</button>
     <label class="inline">Example
       <select id="preset">
@@ -342,6 +344,34 @@ EP down by one:  r -= 16;  while r < 0:  r += n, TP -= 1</code></pre>
   </div>
 </section>
 
+<!-- ===================================================== use it on a vectrex -->
+<section id="vectrex" class="prose">
+  <h2>11. Use it on a Vectrex</h2>
+  <p>The player is one AS09 source file, <a href="vectrex/vtx_speech.asm">vtx_speech.asm</a>: 787 bytes of code and tables and 22 bytes of RAM, with no other files needed. Write your phrases below, export them as <code>speech_data.asm</code>, and include both in your cartridge. The <a href="https://github.com/mikiex/vtx-speech/tree/main/vectrex">guide</a> shows the few calls it needs, and the <a href="vectrex/example/example.bin">example cartridge</a> (built from <a href="vectrex/example/example.asm">example.asm</a>) says four phrases on buttons 1–4.</p>
+  <p>The repository also has a <b>local editor</b> (<code>python vectrex/editor.py phrases.txt</code>): write phrases in English, phonemes or SpeakJet codes, hear each one exactly as the cartridge will say it with a spectrogram of it, set the voices' speed and pitch range with sliders, choose words' pronunciations, export, and build a test cartridge with the bundled AS09 assembler. <code>python vectrex/export.py</code> exports from the command line. Phrases can also be written in <b>SpeakJet</b> codes (<code>\HE \EH \LE \OWWW</code>, or 128–199), which become VTX Speech phonemes.</p>
+  <div class="panel">
+    <label for="vxPhrases"><b>Phrases</b> <span class="dim">(one per line: <code>Label = phrase</code>)</span></label>
+    <textarea id="vxPhrases" rows="9" spellcheck="false">; Label = phrase. ^c0..^c7 a voice (low/slow to high/fast), ^c? a random voice,
+; ,:8 eight frames of silence, {a|b} one of the alternatives at random.
+; @word = /ARPAbet/ *1.2  gives a word its own pronunciation or length;
+; \HE \EH \LE \OWWW (SpeakJet codes) is one word too.
+; "Shall we play a game?" with the film's cadence: a voice before each pitch step.
+#voices 68 127
+#voicespeed flat
+Say_Game  = ,:1 ^c0 /SH:7 AE1:5 AA1:6/ ^c3 /L:6/ ^c2 /W:4 IY1:5/ ^c0 /IY1:7/ ^c5 /P:1 L:2/ ^c3 /EY1:16 AH0:15 G:7/ ^c7 /EY1:8 M:9/
+Say_Hello = ^c5 hello ,:8 i am a vectrex
+Say_Alert = ^c3 intruder alert ,:6 intruder alert
+Say_Taunt = ^c? {get|kill|destroy} {the humanoid|the intruder|it}</textarea>
+    <div class="buttons">
+      <button id="vxFolder" class="primary" hidden title="Choose your game's folder: speech_data.asm and the player vtx_speech.asm are written there (Chrome and Edge)">Save into a folder…</button>
+      <button id="vxExport">Download speech_data.asm</button>
+      <a class="button-link" href="vectrex/vtx_speech.asm" download>Download the player</a>
+    </div>
+    <div id="vxResult" class="readout" aria-live="polite"></div>
+  </div>
+  <p class="dim">Checked: built with AS09 and run in MAME, the player's registers equal the reference player on every frame (3,733 frames, random choices included). It has not yet been heard on a real Vectrex.</p>
+</section>
+
 <!-- ===================================================== credits -->
 <section id="credits" class="prose">
   <h2>Credits and licences</h2>
@@ -362,6 +392,7 @@ EP down by one:  r -= 16;  while r < 0:  r += n, TP -= 1</code></pre>
 <script src="js/speech.js"></script>
 <script src="js/render.js"></script>
 <script src="js/machines.js"></script>
+<script src="js/vectrex_export.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
