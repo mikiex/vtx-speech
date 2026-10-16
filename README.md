@@ -10,6 +10,10 @@ registers are set once per 50 Hz frame. Two parts:
   <https://mikiex.github.io/vtx-speech/>): how the voice is made, and cost
   estimates for other AY machines.
 
+Follow-on experiment: [VTX Voice Matching](https://github.com/mikiex/vtx-voice-matching)
+(<https://mikiex.github.io/vtx-voice-matching/>) makes the AY imitate a recorded
+voice instead of building speech from text.
+
 ## Requirements
 
 | For | Needs |

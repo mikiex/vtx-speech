@@ -25,6 +25,8 @@
     <a href="#features">Features</a>
     <a href="#vectrex">Use it</a>
     <a href="#credits">Credits</a>
+    <a href="https://github.com/mikiex/vtx-speech">Source on GitHub</a>
+    <a href="https://mikiex.github.io/vtx-voice-matching/">Voice matching</a>
   </nav>
 </header>
 
@@ -32,7 +34,8 @@
 <section class="hero">
   <h1>A talking AY chip</h1>
   <p class="lede">The AY-3-8910 family has three square waves, one noise source and one envelope. It has no filters, no waveforms and no samples. This page shows that it can still talk, using only its own generators. The CPU sets the chip's registers once every 50th of a second, which takes about 2% of a Vectrex frame, and the chip makes the voice in between.</p>
-  <p class="dim">Everything here runs in your browser: the voice model, the pronunciation dictionary and an AY emulator. Type anything below.</p>
+  <p class="dim">Everything here runs in your browser: the voice model, the pronunciation dictionary and an AY emulator. Type anything below. The source, the Vectrex player and the tools are on GitHub: <a href="https://github.com/mikiex/vtx-speech">github.com/mikiex/vtx-speech</a>.</p>
+  <p class="dim">Follow-on experiment: <a href="https://mikiex.github.io/vtx-voice-matching/">VTX Voice Matching</a> starts from a recording instead of text, and searches for the AY settings that sound closest to it, 50 times a second.</p>
 </section>
 
 <!-- ===================================================== playground -->
@@ -338,6 +341,7 @@ EP down by one:  r -= 16;  while r < 0:  r += n, TP -= 1</code></pre>
         <li>Formant levels: F2 could move off the envelope onto a steady quieter volume for vowels such as "oo", trading buzz for balance.</li>
         <li>A per-machine exporter: write the state runs and a player for Z80 or 68000 targets.</li>
         <li>Fitting the phoneme table to recordings of real speech, rather than textbook formants.</li>
+        <li>Making the chip imitate a recording directly instead of building speech from text: now an experiment of its own, <a href="https://mikiex.github.io/vtx-voice-matching/">VTX Voice Matching</a> (<a href="https://github.com/mikiex/vtx-voice-matching">source</a>).</li>
         <li>On the YM2149, the 32-step envelope gives a smoother decay per pitch period, and that is worth tuning for.</li>
       </ul>
     </div>
@@ -348,7 +352,7 @@ EP down by one:  r -= 16;  while r < 0:  r += n, TP -= 1</code></pre>
 <section id="vectrex" class="prose">
   <h2>11. Use it on a Vectrex</h2>
   <p>The player is one AS09 source file, <a href="vectrex/vtx_speech.asm">vtx_speech.asm</a>: 787 bytes of code and tables and 22 bytes of RAM, with no other files needed. Write your phrases below, export them as <code>speech_data.asm</code>, and include both in your cartridge. The <a href="https://github.com/mikiex/vtx-speech/tree/main/vectrex">guide</a> shows the few calls it needs, and the <a href="vectrex/example/example.bin">example cartridge</a> (built from <a href="vectrex/example/example.asm">example.asm</a>) says four phrases on buttons 1–4.</p>
-  <p>The repository also has a <b>local editor</b> (<code>python vectrex/editor.py phrases.txt</code>): write phrases in English, phonemes or SpeakJet codes, hear each one exactly as the cartridge will say it with a spectrogram of it, set the voices' speed and pitch range with sliders, choose words' pronunciations, export, and build a test cartridge with the bundled AS09 assembler. <code>python vectrex/export.py</code> exports from the command line. Phrases can also be written in <b>SpeakJet</b> codes (<code>\HE \EH \LE \OWWW</code>, or 128–199), which become VTX Speech phonemes.</p>
+  <p>The <a href="https://github.com/mikiex/vtx-speech">repository</a> also has a <b>local editor</b> (<code>python vectrex/editor.py phrases.txt</code>): write phrases in English, phonemes or SpeakJet codes, hear each one exactly as the cartridge will say it with a spectrogram of it, set the voices' speed and pitch range with sliders, choose words' pronunciations, export, and build a test cartridge with the bundled AS09 assembler. <code>python vectrex/export.py</code> exports from the command line. Phrases can also be written in <b>SpeakJet</b> codes (<code>\HE \EH \LE \OWWW</code>, or 128–199), which become VTX Speech phonemes.</p>
   <div class="panel">
     <label for="vxPhrases"><b>Phrases</b> <span class="dim">(one per line: <code>Label = phrase</code>)</span></label>
     <textarea id="vxPhrases" rows="9" spellcheck="false">; Label = phrase. ^c0..^c7 a voice (low/slow to high/fast), ^c? a random voice,
