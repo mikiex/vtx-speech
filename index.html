@@ -327,7 +327,7 @@ EP down by one:  r -= 16;  while r < 0:  r += n, TP -= 1</code></pre>
         <li>Any English text, with dictionary, endings, compounds and guesses; numbers.</li>
         <li>Questions that rise, stressed syllables, a falling phrase.</li>
         <li>Speed, pitch marks (<code>^150</code>), per-phoneme length and pitch.</li>
-        <li><b>Singing</b>: every phoneme can have its own pitch (try the "Daisy Bell" example).</li>
+        <li><b>Singing</b>: every phoneme can have its own pitch (try the "Daisy Bell" example). For fast tunes a voice can jump straight to each note instead of gliding (try "Ievan Polkka", sung in Finnish after a two-bar intro: 81 notes, each exactly on the beat and within 20 cents, with a short breath after every longer note and the score's staccato notes cut to half, with the voice on channels A and B and the score's oom-pah bass and off-beats plucked on C). "Ievan Polkka, two AYs a cappella" is an experiment for a machine with two chips, such as a Spectrum with TurboSound, arranged as the choir score is: one AY sings the melody on all three channels, and the second is a backing voice singing the bass's "bum, bom" on each beat and the alto's "ka-ti ka" between them (the two parts never sound at once, so one voice can sing both). The register display shows the first chip only.. Singing plays here only: the cartridge player sets the pitch per word, not per note.</li>
         <li>Vibrato, and screams (a high, wobbling open vowel).</li>
         <li>Voice size: formants scaled up for a smaller vocal tract.</li>
         <li>A two-channel layout that leaves channel C free for the game.</li>
@@ -386,6 +386,7 @@ Say_Taunt = ^c? {get|kill|destroy} {the humanoid|the intruder|it}</textarea>
     <li><b>Inspiration</b>: SAM (Software Automatic Mouth, 1982) and the formant synthesisers before it. No code from them is used.</li>
     <li><b>"Shall we play a game?"</b>: the opening line's word lengths and pitches were measured from the film <i>WarGames</i> (1983), so each word sits on its own flat pitch as in the film. Only the timing and pitch numbers are used; no audio from the film is included.</li>
     <li><b>"Daisy Bell"</b> (Harry Dacre, 1892) is in the public domain.</li>
+    <li><b>"Ievan Polkka"</b>: the traditional Finnish folk melody with Eino Kettunen's Finnish words (first verse, bridge and refrain), transcribed from Jetse Bremer's SATB arrangement. Only the melody line and the words are used; Loituma's scat is not.</li>
     <li>The voice model was developed for VTX, a language and toolchain for the Vectrex, where it runs on a real cartridge player. This page is a JavaScript port that produces exactly the same registers as the reference model (a test checks 2,631 frames).</li>
   </ul>
   <p class="dim">VTX Speech © 2026 Michael Simonds. MIT licence (<a href="LICENSE">LICENSE</a>); the files in <code>vendor/</code> keep their own licences.</p>

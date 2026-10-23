@@ -85,6 +85,122 @@
   const FLAT = { stress: 0, fall: 0, question: 0 };
   const DAISY = "D:3@147 AY1:42@147 | Z:4@123 IY0:40@123 ,:6 D:3@98 AY1:42@98 | Z:4@73 IY0:40@73 ,:6 " +
     "G:3@82 IH1:12@82 V:3@82 | M:3@92 IY1:12@92 | Y:3@98 AO1:10@98 R:4@98 | AE1:24@82 N:3@82 S:4 ER0:12@98 | D:3@73 UW1:70@73 .";
+  // Ievan Polkka: the soprano melody and Finnish words of a choir score (bars
+  // 5-9 and 19-21: first verse, bridge, refrain). Each note is
+  // syllable:note:sixteenths; a sixteenth is 6 frames (125 bpm), and the tune is
+  // 8 semitones down, where the envelope's steps land within 20 cents of every
+  // note. The score's "täp-py-t äp-pyt" is sung "täp-py-tä äp-pyt". A trailing
+  // "." is the score's staccato dot.
+  const POLKA_BARS = [
+    "Nua:B3:1 pu:B3:1 ris:E4:1 ta:E4:1 kuu:E4:2 lu:E4:1 se:F#4:1 po:G4:1 lo:E4:1 kan:E4:2 tah:E4:2 ti:G4:2",
+    "ja:F#4:1 la:D4:1 ka:D4:1 ni:D4:1 poh:D4:2 jii:F#4:2 kut:G4:2 kut:E4:2 ti:E4:2 r:2",
+    "Ie:B3:2 van:E4:2 äi:E4:2 ti:E4:1 se:F#4:1 tyt:G4:2 töö:E4:1 sä:E4:1 vah:E4:2 ti:E4:1 vaan:G4:1",
+    "kyl:B4:2 lä:A4:1 hän:A4:1 Ie:G4:2 va:F#4:1 sen:F#4:1 jut:G4:2 kut:E4:2 ti:E4:2 sil:G4:1 lä:G4:1",
+    "ei:B4:2 mei:B4:1 tä:B4:1 sil:A4:2 loin:G4:2 kiel:F#4:2 lot:D4:2 hait:D4:2 taa:F#4:2",
+    "sil:A4:2 lon:A4:1 ko:A4:1 las:G4:2 koo:F#4:2 lai:F#4:2 a:E4:1 sta:E4:1 lai:E4:2 taan:G4:2",
+    "Sa:B4:1 li:B4:1 vi:B4:1 li:B4:1 hip:A4:2 put:G4:2. tup:F#4:2 put:D4:2. täp:D4:2 py:F#4:1 tä:F#4:1",
+    "äp:A4:2 pyt:A4:2. tip:G4:2 put:F#4:2. hi:G4:1 li:E4:1 jal:E4:2 leen:E4:2 r:2",
+  ];
+  // Two bars of the backing alone before the singing, as the score opens.
+  const POLKA_INTRO = ["E3:G4:kt B2:G4:k E3:G4:kt B2:G4:k", "E3:G4:kt B2:G4:k E3:G4:kt B2:G4:k"];
+  const POLKA_LEAD = POLKA_INTRO.map(() => "r:16").concat(POLKA_BARS);
+  // Finnish letters as phonemes. k, t and p are unaspirated, so they use the
+  // short G, D and B (2 frames: closure and burst); the model has no front
+  // rounded vowels, so y and ö borrow IH and ER. A doubled vowel is one long
+  // vowel; a diphthong gives its first vowel 60% of the note.
+  const FI_VOWELS = { a: "AA1", e: "EH1", i: "IY1", o: "AO1", u: "UW1", y: "IH1", "ä": "AE1", "ö": "ER1" };
+  const FI_CONSONANTS = { k: ["G:1", 2], t: ["D:1", 2], p: ["B:1", 2], b: ["B:1", 2], d: ["D:1", 2], g: ["G:1", 2],
+    s: ["S:2", 2], h: ["HH:1", 1], j: ["Y:1", 1],
+    l: ["L:1", 1], m: ["M:1", 1], n: ["N:1", 1], r: ["R:1", 1], v: ["V:1", 1] };
+  const NOTE_STEPS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const noteMidi = (n) => 12 * (+n.slice(-1) + 1) + NOTE_STEPS[n[0]] + (n.includes("#") ? 1 : 0);
+  const midiHz = (m, shift) => +(440 * Math.pow(2, (m + shift - 69) / 12)).toFixed(1);
+  const noteHz = (n, shift) => midiHz(noteMidi(n), shift);
+  // Detached singing: an eighth note or longer ends with a 2-frame breath, a
+  // staccato note sounds for half its length; sixteenths stay joined.
+  function sungText(bars, step = 6, shift = -8) {
+    const frames = (list) => list.reduce((s, c) => s + c[1], 0);
+    return bars.join(" ").split(" ").map((note) => {
+      const [syl, pitch, mark] = note.split(":");
+      if (syl === "r") return `,:${pitch * step}`;
+      const len = parseInt(mark, 10), gap = mark.endsWith(".") ? len * step / 2 : len >= 2 ? 2 : 0;
+      const f = noteHz(pitch, shift);
+      const [, a, b, c] = /^([^aeiouyäö]*)([aeiouyäö]+)([^aeiouyäö]*)$/.exec(syl.toLowerCase());
+      const onset = [...a].map((x) => FI_CONSONANTS[x]), coda = [...c].map((x) => FI_CONSONANTS[x]);
+      const nucleus = [...b].filter((v, i, all) => v !== all[i - 1]);
+      const left = len * step - gap - frames(onset) - frames(coda);
+      const first = nucleus.length > 1 ? Math.round(left * 0.6) : left;
+      if (left - (nucleus.length > 1 ? first : 0) < 2 || first < 2) throw new Error(`"${syl}" does not fit its note`);
+      return [...onset.map((x) => x[0]), ...nucleus.map((v, i) => `${FI_VOWELS[v]}:${i ? left - first : first}`),
+        ...coda.map((x) => x[0])].map((p) => `${p}@${f}`).join(" ") + (gap ? ` ,:${gap}` : " |");
+    }).join(" ").replace(/ \| ,/g, " ,").replace(/ \|$/, "");
+  }
+  // The score's polka accompaniment on channel C, under the two-channel voice:
+  // the bass's "pol" on each beat, then the alto's "ka-ti" (kt: two
+  // sixteenths, over Em) or "ka" (k: one eighth, over Bm7 and D) after it.
+  // Each beat is bass:offbeat:pattern. Every note is a decaying square pluck.
+  const POLKA_BEATS = [
+    "E3:G4:kt B2:G4:k E3:G4:kt B2:G4:k",
+    "B2:F#4:k D3:F#4:k E3:G4:kt B2:G4:k",
+    "E3:G4:kt B2:G4:k E3:G4:kt B2:G4:k",
+    "B2:F#4:k D3:F#4:k E3:G4:kt B2:G4:k",
+    "E3:G4:kt B2:G4:k B2:F#4:k D3:F#4:k",
+    "B2:F#4:k D3:F#4:k E3:G4:kt B2:G4:k",
+    "E3:G4:kt B2:G4:k B2:F#4:k D3:F#4:k",
+    "B2:F#4:k D3:F#4:k E3:G4:kt E3:-:-",
+  ];
+  const PLUCK = { bass: [12, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2], short: [10, 9, 7, 5, 3, 1], long: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0] };
+  // -> one [Hz, volume] (or null) per frame.
+  function polkaBacking(bars, step = 6, shift = -8) {
+    const out = [];
+    const pluck = (note, shape) => shape.forEach((vol) => out.push([noteHz(note, shift), vol]));
+    bars.join(" ").split(" ").forEach((beat) => {
+      const [bass, off, pattern] = beat.split(":");
+      pluck(bass, PLUCK.bass);
+      if (pattern === "kt") { pluck(off, PLUCK.short); pluck(off, PLUCK.short); }
+      else if (pattern === "k") pluck(off, PLUCK.long);
+      else for (let k = 0; k < 2 * step; k++) out.push(null);
+    });
+    return out;
+  }
+  // Lays a backing over channel C: tone period, volume and the mixer's tone C bit.
+  function addBacking(frames, backing, clock) {
+    frames.forEach((frame, i) => {
+      const b = backing[i];
+      if (!b || !b[1]) return;
+      const tp = Math.max(1, Math.min(4095, Math.round(clock / (16 * b[0]))));
+      frame.regs[4] = tp & 0xff; frame.regs[5] = tp >> 8;
+      frame.regs[10] = b[1];
+      frame.regs[7] &= ~0x04;
+    });
+  }
+  // Two AYs, a cappella (an experiment for TurboSound's two chips), as the
+  // score is arranged: AY 1 sings the melody, AY 2 the backing voice, which is
+  // the bass's "bum, bom" on each beat and the alto's "ka-ti" or "ka" after it.
+  // The two never sound at once, so one voice sings both. From POLKA_BEATS, in
+  // POLKA_BARS' notation.
+  function polkaBackingVoice(beats) {
+    return beats.join(" ").split(" ").map((beat, i) => {
+      const [low, high, pattern] = beat.split(":");
+      const off = pattern === "kt" ? `ka:${high}:1 ti:${high}:1` : pattern === "k" ? `ka:${high}:2` : "r:2";
+      return `${i % 2 ? "bom" : "bum"}:${low}:2 ${off}`;
+    });
+  }
+  const POLKA_BACKING_VOICE = polkaBackingVoice(POLKA_INTRO.concat(POLKA_BEATS));
+  // Renders the other chips and mixes them with AY 1's samples (gains, then a
+  // peak limit so the sum cannot clip).
+  function mixChips(samples, chips, clock, ym) {
+    const out = Float32Array.from(samples);
+    for (const chip of chips) {
+      const frames = Speech.speak(Object.assign({}, chip.voice, { clock }), chip.text, "phonemes").frames;
+      const s = Render.render(frames, RATE, { clock, ym }, Ayumi);
+      for (let i = 0; i < Math.min(out.length, s.length); i++) out[i] += chip.gain * s[i];
+    }
+    let peak = 0;
+    for (const x of out) peak = Math.max(peak, Math.abs(x));
+    if (peak > 0.95) for (let i = 0; i < out.length; i++) out[i] *= 0.95 / peak;
+    return out;
+  }
   const SCREAM = "AE1:4@300 AA1:8@520 AA1:40@560 AA1:20@500 AA1:15@380 AA0:10@250";
   const PRESETS = [
     // Word lengths and pitches measured from the film's line (dev/analyse_reference.js), with word
@@ -98,6 +214,19 @@
     { name: "Robot monotone", text: "I am a robot. I have no feelings, and no samples.", voice: { pitch: 90, rate: 0.9, intonation: FLAT } },
     { name: "Small voice", text: "Hello! Shall I tell you a story?", voice: { pitch: 220, formantScale: 1.18 } },
     { name: "Singing: Daisy Bell", text: DAISY, mode: "phonemes", voice: { intonation: FLAT, vibrato: { depth: 0.015, rate: 5.5 } } },
+    // glide 1: each note jumps to its pitch instead of sliding there (fast notes).
+    // The shared layout keeps the voice on A and B, so C plays the oom-pah.
+    { name: "Singing: Ievan Polkka (Leekspin)", text: sungText(POLKA_LEAD), mode: "phonemes",
+      voice: { intonation: FLAT, vibrato: { depth: 0.01, rate: 5.5 }, formantScale: 1.15, glide: 1, layout: "shared" },
+      backing: polkaBacking(POLKA_INTRO.concat(POLKA_BEATS)) },
+    { name: "Singing: Ievan Polkka, two AYs a cappella (experiment)", text: sungText(POLKA_LEAD), mode: "phonemes",
+      voice: { intonation: FLAT, vibrato: { depth: 0.01, rate: 5.5 }, formantScale: 1.15, glide: 1 },
+      chips: [
+        // Measured while sounding, the two voices are within 1 dB at gain 1. By
+        // ear the backing sits well under the lead: about 15 dB (3 and 9 dB
+        // under were still too loud).
+        { text: sungText(POLKA_BACKING_VOICE), gain: 0.19, voice: { intonation: FLAT, glide: 1 } },
+      ] },
     { name: "Scream", text: SCREAM, mode: "phonemes", voice: { pitch: 420, vibrato: { depth: 0.05, rate: 9 }, intonation: FLAT,
       channels: [{ role: "F1", volume: "env" }, { role: "F2", volume: "env" }, { role: "F3", volume: 10 }], noise: { period: 6, channels: [2] } } },
     { name: "Alien scream", text: "IY1:4@500 AE1:10@900 AE1:35@950 AE1:15@800 HH:10 S:12", mode: "phonemes",
@@ -132,6 +261,7 @@
     };
     if (extra.channels) v.channels = extra.channels;
     if (extra.noise) v.noise = extra.noise;
+    if (extra.glide !== undefined) v.glide = extra.glide;
     return v;
   }
 
@@ -147,6 +277,7 @@
     extra = {};
     if (voice.channels) extra.channels = voice.channels;
     if (voice.noise) extra.noise = voice.noise;
+    if (voice.glide !== undefined) extra.glide = voice.glide;
     showOutputs();
   }
 
@@ -170,7 +301,9 @@
       return null;
     }
     const m = machine();
-    const samples = Render.render(result.frames, RATE, { clock: m.clock, ym: m.ym }, Ayumi);
+    if (extra.backing) addBacking(result.frames, extra.backing, m.clock);
+    let samples = Render.render(result.frames, RATE, { clock: m.clock, ym: m.ym }, Ayumi);
+    if (extra.chips) samples = mixChips(samples, extra.chips, m.clock, m.ym);
     current = { result, samples, storage: Speech.storage(result), machine: m, sel: 0, image: null };
     showWords(result.words);
     drawSpectro();
@@ -741,11 +874,13 @@
       $("#say").value = p.text;
       $(`input[name=mode][value=${p.mode || "text"}]`).checked = true;
       setControls(p.voice);
+      if (p.backing) extra.backing = p.backing;
+      if (p.chips) extra.chips = p.chips;
       speakNow();
     });
     let timer = null;
     Object.entries(ctl).forEach(([key, el]) => el.addEventListener("input", () => {
-      if (key === "f3" || key === "layout") delete extra.channels;
+      if (key === "f3" || key === "layout") { delete extra.channels; delete extra.backing; }
       if (key === "machine") machineChanged();
       showOutputs();
       clearTimeout(timer);

@@ -450,11 +450,14 @@
       }
       start = Math.max(end, start + 1);
     }
+    // glide (an experiment beyond the reference model): the share of the way
+    // to a new pitch covered each frame; 1 jumps, for fast sung notes.
+    const glide = v.glide === undefined ? PITCH_SMOOTHING : v.glide;
     const out = [];
     let current = null;
     states.forEach((state, i) => {
       if (current === null || state.label === "pause" || state.jump) current = targets[i];
-      else current += (targets[i] - current) * PITCH_SMOOTHING;
+      else current += (targets[i] - current) * glide;
       out.push(current);
     });
     return out;

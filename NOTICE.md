@@ -29,6 +29,10 @@
   values); no text or code is copied.
 - "Daisy Bell" (Harry Dacre, 1892), used in an example, is in the public
   domain.
+- "Ievan Polkka": an example sings the traditional Finnish folk melody with
+  Eino Kettunen's Finnish words (first verse, bridge and refrain), both
+  transcribed from Jetse Bremer's SATB arrangement. No recording or
+  arrangement is used.
 - SAM (Software Automatic Mouth, 1982) is mentioned as inspiration. No code
   from it is used.
 
