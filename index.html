@@ -33,7 +33,7 @@
 <main>
 <section class="hero">
   <h1>A talking AY chip</h1>
-  <p class="lede">The AY-3-8910 family has three square waves, one noise source and one envelope. It has no filters, no waveforms and no samples. This page shows that it can still talk, using only its own generators. The CPU sets the chip's registers once every 50th of a second, which takes about 2% of a Vectrex frame, and the chip makes the voice in between.</p>
+  <p class="lede">The AY-3-8910 family has three square waves, one noise source and one envelope. It has no filters, no other waveforms and no sample playback of its own. The CPU can fake them with volume tricks: rewriting a channel's 4-bit volume register thousands of times a second plays samples or draws other waveforms, but that keeps the CPU busy for the whole sound. This page shows that the chip can talk without that, using only its own generators. The CPU sets the chip's registers once every 50th of a second, which takes about 2% of a Vectrex frame, and the chip makes the voice in between.</p>
   <p class="dim">Everything here runs in your browser: the voice model, the pronunciation dictionary and an AY emulator. Type anything below. The source, the Vectrex player and the tools are on GitHub: <a href="https://github.com/mikiex/vtx-speech">github.com/mikiex/vtx-speech</a>.</p>
   <p class="dim">Follow-on experiment: <a href="https://mikiex.github.io/vtx-voice-matching/">VTX Voice Matching</a> starts from a recording instead of text, and searches for the AY settings that sound closest to it, 50 times a second.</p>
 </section>
